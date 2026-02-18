@@ -1,0 +1,69 @@
+# Configuration for GitHub Actions labeler
+# See https://github.com/actions/labeler
+
+# Documentation
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**/*'
+      - 'examples/**/*'
+      - 'LICENSE'
+
+# Provider core
+provider:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/provider/provider*.go'
+      - 'main.go'
+
+# Resources
+resource:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/provider/*_resource*.go'
+      - 'internal/provider/resource_*.go'
+
+# Data sources
+data-source:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/provider/*_data_source*.go'
+      - 'internal/provider/data_source_*.go'
+
+# Testing
+testing:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*_test.go'
+      - 'internal/provider/test*.go'
+
+# CI/CD
+ci/cd:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/workflows/**/*'
+      - '.github/actions/**/*'
+      - '.goreleaser.yml'
+
+# Dependencies
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'go.mod'
+      - 'go.sum'
+
+# GitHub Actions
+github-actions:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/workflows/**/*'
+      - '.github/actions/**/*'
+
+# Go code (general)
+go:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'

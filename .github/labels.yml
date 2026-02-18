@@ -1,0 +1,142 @@
+# GitHub Labels Configuration
+# This file can be used with tools like https://github.com/Financial-Times/github-label-sync
+
+# Type Labels
+- name: bug
+  color: d73a4a
+  description: Something isn't working
+
+- name: enhancement
+  color: a2eeef
+  description: New feature or request
+
+- name: documentation
+  color: 0075ca
+  description: Improvements or additions to documentation
+
+- name: question
+  color: d876e3
+  description: Further information is requested
+
+- name: refactor
+  color: fbca04
+  description: Code refactoring without functionality changes
+
+# Priority Labels
+- name: priority/critical
+  color: b60205
+  description: Critical priority - needs immediate attention
+
+- name: priority/high
+  color: d93f0b
+  description: High priority
+
+- name: priority/medium
+  color: fbca04
+  description: Medium priority
+
+- name: priority/low
+  color: 0e8a16
+  description: Low priority
+
+# Status Labels
+- name: needs-triage
+  color: ededed
+  description: Needs initial review and categorization
+
+- name: needs-investigation
+  color: f9d0c4
+  description: Requires further investigation
+
+- name: needs-reproduction
+  color: fef2c0
+  description: Bug needs reproduction steps
+
+- name: blocked
+  color: b60205
+  description: Blocked by another issue or external dependency
+
+- name: wontfix
+  color: ffffff
+  description: This will not be worked on
+
+- name: duplicate
+  color: cfd3d7
+  description: This issue or pull request already exists
+
+- name: good first issue
+  color: 7057ff
+  description: Good for newcomers
+
+- name: help wanted
+  color: 008672
+  description: Extra attention is needed
+
+- name: in-progress
+  color: c5def5
+  description: Currently being worked on
+
+# Component Labels
+- name: provider
+  color: 1d76db
+  description: Related to provider configuration
+
+- name: resource
+  color: 5319e7
+  description: Related to Terraform resources
+
+- name: data-source
+  color: 0e8a16
+  description: Related to Terraform data sources
+
+- name: testing
+  color: c2e0c6
+  description: Related to testing
+
+- name: ci/cd
+  color: 0052cc
+  description: Related to CI/CD pipelines
+
+# Dependencies
+- name: dependencies
+  color: 0366d6
+  description: Pull requests that update a dependency file
+
+- name: go
+  color: 00add8
+  description: Related to Go dependencies
+
+- name: github-actions
+  color: 2088ff
+  description: Related to GitHub Actions
+
+# Security
+- name: security
+  color: d73a4a
+  description: Security-related issues
+
+# Breaking Changes
+- name: breaking-change
+  color: d93f0b
+  description: Introduces breaking changes
+
+# Size Labels (for PRs)
+- name: size/XS
+  color: 3cbf00
+  description: Extra small PR
+
+- name: size/S
+  color: 5d9801
+  description: Small PR
+
+- name: size/M
+  color: 7f7203
+  description: Medium PR
+
+- name: size/L
+  color: a14c05
+  description: Large PR
+
+- name: size/XL
+  color: c32607
+  description: Extra large PR

@@ -1,0 +1,91 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for the Terraform Provider for Popsink
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please fill out the information below to help us understand your request.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the feature you'd like to see.
+      placeholder: Describe the feature you're requesting
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: Describe the use case or problem this feature would solve.
+      placeholder: |
+        What problem are you trying to solve?
+        How would this feature help you or others?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe how you envision this feature working.
+      placeholder: |
+        How should this feature work?
+        What should the Terraform configuration look like?
+
+        Example:
+        resource "popsink_new_resource" "example" {
+          name = "example"
+          # additional attributes
+        }
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions or workarounds?
+      placeholder: Describe any alternative solutions or features you've considered
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples about the feature request.
+      placeholder: Any additional information that might be helpful
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you like to contribute this feature?
+      description: Are you interested in implementing this feature yourself?
+      options:
+        - "Yes, I'd like to contribute"
+        - "Maybe, with guidance"
+        - "No, but I'm happy to help test"
+        - "No"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: existing-resources
+    attributes:
+      label: Existing Resources
+      description: Please confirm you've checked for existing requests
+      options:
+        - label: I have searched the existing issues and this feature hasn't been requested before
+          required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/popsink/terraform-provider-popsink/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

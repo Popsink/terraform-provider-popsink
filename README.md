@@ -75,3 +75,24 @@ make fmt       # Format code
 make lint      # Run linter
 make clean     # Clean build artifacts
 ```
+
+### Testing locally with `terraform apply`
+
+1. Build and install the provider:
+
+```bash
+make install
+```
+
+2. Set environment variables and run:
+
+```bash
+export POPSINK_BASE_URL="https://data-plane.ppsk.localhost/api"
+export POPSINK_TOKEN="your-token"
+export POPSINK_INSECURE="true"  # for self-signed certificates
+
+cd examples/
+terraform init
+terraform plan
+terraform apply
+```

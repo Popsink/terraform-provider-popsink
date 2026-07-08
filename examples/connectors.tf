@@ -47,6 +47,50 @@ resource "popsink_connector" "ibmi_source" {
   })
 }
 
+resource "popsink_connector" "oracle_source" {
+  name           = "oracle-source"
+  connector_type = "ORACLE_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host         = "oracle.example.com"
+    port         = 1521
+    service_name = "ORCLPDB1"
+    user         = "logminer_user"
+    password     = var.oracle_source_password
+    whitelist    = "SALES.ORDERS,SALES.CUSTOMERS"
+    init_load    = true
+  })
+}
+
+resource "popsink_connector" "mssql_source" {
+  name           = "mssql-source"
+  connector_type = "MSSQL_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host                     = "mssql.example.com"
+    port                     = 1433
+    database                 = "production"
+    user                     = "cdc_user"
+    password                 = var.mssql_password
+    encrypt                  = true
+    trust_server_certificate = false
+    whitelist                = "dbo.orders,dbo.customers"
+    init_load                = true
+  })
+}
+
+resource "popsink_connector" "hubspot_source" {
+  name           = "hubspot-source"
+  connector_type = "HUBSPOT_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    access_token = var.hubspot_access_token
+  })
+}
+
 # --- Targets ---
 
 resource "popsink_connector" "oracle_target" {
@@ -96,4 +140,32 @@ resource "popsink_connector" "snowflake_target" {
   team_id        = popsink_team.example.id
 
   json_configuration = jsonencode({})
+}
+
+resource "popsink_connector" "postgres_target" {
+  name           = "postgres-target"
+  connector_type = "POSTGRES_TARGET"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host     = "postgres-dw.example.com"
+    port     = "5432"
+    database = "warehouse"
+    user     = "loader"
+    password = var.postgres_target_password
+    schema   = "public"
+  })
+}
+
+resource "popsink_connector" "webhook_target" {
+  name           = "webhook-target"
+  connector_type = "WEBHOOK_TARGET"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host                = "https://example.com/ingest"
+    authentication_type = "BEARER"
+    token               = var.webhook_token
+    request_method      = "POST"
+  })
 }

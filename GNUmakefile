@@ -58,9 +58,15 @@ testacc:
 docs:
 	go generate ./...
 
+# Detect drift between the provider's connector_type list and a live data-plane's
+# OpenAPI spec. Requires POPSINK_BASE_URL (and optionally POPSINK_TOKEN /
+# POPSINK_INSECURE). See CONTRIBUTING.md ("Keeping connector_type in sync").
+check-connector-types:
+	./scripts/check-connector-types.sh
+
 clean:
 	rm -f terraform-provider-popsink
 	rm -f coverage.txt
 	go clean -testcache
 
-.PHONY: build install fmt lint test testacc docs clean
+.PHONY: build install fmt lint test testacc docs check-connector-types clean

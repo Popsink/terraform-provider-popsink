@@ -24,6 +24,47 @@ var (
 	_ resource.ResourceWithImportState = &connectorResource{}
 )
 
+// connectorTypes lists every connector type accepted by the Popsink data-plane.
+//
+// This mirrors the data-plane ConnectorType enum
+// (data-plane/back/domains/entities/connector_entity.py). It is maintained by
+// hand: when the data-plane adds a type, add it here. To catch drift, run
+// `make check-connector-types` against a live data-plane (see CONTRIBUTING.md,
+// "Keeping connector_type in sync"). The long-term fix is generating the list
+// from a versioned OpenAPI spec (data-plane#2530).
+var connectorTypes = []string{
+	// sources
+	"KAFKA_SOURCE",
+	"IBMI_SOURCE",
+	"ORACLE_SOURCE",
+	"POSTGRES_SOURCE",
+	"MSSQL_SOURCE",
+	"MYSQL_SOURCE",
+	"DLT_SOURCE",
+	"ZENDESK_SOURCE",
+	"SHOPIFY_SOURCE",
+	"PIPEDRIVE_SOURCE",
+	"HUBSPOT_SOURCE",
+	"GOOGLE_ADS_SOURCE",
+	"FACEBOOK_ADS_SOURCE",
+	"SHAREPOINT_SOURCE",
+	"SALESFORCE_SOURCE",
+	"POPSINK_SOURCE",
+	"DATAGEN_SOURCE",
+	"BIGQUERY_SOURCE",
+	"SNOWFLAKE_SOURCE",
+	// targets
+	"ORACLE_TARGET",
+	"KAFKA_TARGET",
+	"ICEBERG_TARGET",
+	"UNITY_CATALOG_TARGET",
+	"SNOWFLAKE_TARGET",
+	"POSTGRES_TARGET",
+	"ELASTICSEARCH_TARGET",
+	"BIGQUERY_TARGET",
+	"WEBHOOK_TARGET",
+}
+
 func NewConnectorResource() resource.Resource {
 	return &connectorResource{}
 }
@@ -62,18 +103,12 @@ func (r *connectorResource) Schema(ctx context.Context, req resource.SchemaReque
 				Required:    true,
 			},
 			"connector_type": schema.StringAttribute{
-				Description: "The type of connector. Valid values: KAFKA_SOURCE, IBMI_SOURCE, POSTGRES_SOURCE, ORACLE_TARGET, KAFKA_TARGET, ICEBERG_TARGET, SNOWFLAKE_TARGET.",
-				Required:    true,
+				Description: "The type of connector. Must be one of the Popsink data-plane connector " +
+					"types (sources and targets). See the resource documentation for the full list " +
+					"and per-type configuration examples.",
+				Required: true,
 				Validators: []validator.String{
-					stringvalidator.OneOf(
-						"KAFKA_SOURCE",
-						"IBMI_SOURCE",
-						"POSTGRES_SOURCE",
-						"ORACLE_TARGET",
-						"KAFKA_TARGET",
-						"ICEBERG_TARGET",
-						"SNOWFLAKE_TARGET",
-					),
+					stringvalidator.OneOf(connectorTypes...),
 				},
 			},
 			"json_configuration": schema.StringAttribute{

@@ -77,8 +77,13 @@ func (r *connectorResource) Schema(ctx context.Context, req resource.SchemaReque
 				},
 			},
 			"json_configuration": schema.StringAttribute{
-				Description: "The connector configuration as a JSON string.",
-				Required:    true,
+				Description: "The connector configuration as a JSON string. Carries credentials " +
+					"(passwords, SASL secrets, API keys) and is marked sensitive so its value is " +
+					"redacted from plan output and logs. It is still persisted in Terraform state — " +
+					"prefer data-plane `valueFrom` secret references so credentials never enter state. " +
+					"See the resource documentation's Handling secrets section.",
+				Required:  true,
+				Sensitive: true,
 			},
 			"team_id": schema.StringAttribute{
 				Description: "The ID of the team that owns this connector.",

@@ -139,7 +139,7 @@ resource "popsink_connector" "snowflake_target" {
 
 - `name` (Required) - The name of the connector. Must only contain alphanumeric characters, hyphens, and underscores.
 - `connector_type` (Required) - The type of connector. Valid values: `KAFKA_SOURCE`, `IBMI_SOURCE`, `POSTGRES_SOURCE`, `ORACLE_TARGET`, `KAFKA_TARGET`, `ICEBERG_TARGET`, `SNOWFLAKE_TARGET`.
-- `json_configuration` (Required) - The connector configuration as a JSON string. Use `jsonencode()` for readability. Configuration fields depend on the connector type.
+- `json_configuration` (Required, Sensitive) - The connector configuration as a JSON string. Use `jsonencode()` for readability. Configuration fields depend on the connector type. This attribute is marked sensitive: its value is redacted from `terraform plan` output and logs. See [Handling secrets](#handling-secrets) below.
 - `team_id` (Required) - The ID of the team that owns this connector.
 
 ## Attribute Reference
@@ -147,6 +147,93 @@ resource "popsink_connector" "snowflake_target" {
 - `id` - The unique identifier of the connector.
 - `items_count` - The number of items associated with this connector.
 - `status` - The current status of the connector.
+
+## Handling secrets
+
+`json_configuration` typically carries credentials — database passwords, SASL
+secrets, API keys. This section describes how those credentials are protected and
+the recommended way to supply them.
+
+### Sensitive marking
+
+The attribute is marked `Sensitive`, so its value is **redacted from
+`terraform plan` output and CI logs**. Terraform still records the value in state,
+so protect your state backend accordingly (encryption at rest, restricted access).
+
+### Recommended: pass credentials through sensitive variables
+
+Never hard-code secrets in `.tf` files. Declare them as sensitive input variables
+and reference them from `jsonencode(...)`:
+
+```hcl
+variable "postgres_password" {
+  type      = string
+  sensitive = true
+}
+
+resource "popsink_connector" "postgres_source" {
+  name           = "postgres-source"
+  connector_type = "POSTGRES_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host     = "postgres.example.com"
+    port     = "5432"
+    database = "production"
+    user     = "replication_user"
+    password = var.postgres_password
+  })
+}
+```
+
+Supply the value via `TF_VAR_postgres_password`, a `*.auto.tfvars` file kept out of
+version control, or your CI secret store.
+
+### Preferred: `valueFrom` secret references (credentials never enter state)
+
+The Popsink data-plane supports referencing credentials from a Kubernetes Secret
+instead of embedding the literal value. When a configuration field uses a
+`valueFrom` reference, the credential value never reaches Terraform — it is
+resolved by the data-plane at worker launch — so it is never written to plan
+output *or* state:
+
+```hcl
+json_configuration = jsonencode({
+  host     = "postgres.example.com"
+  user     = "replication_user"
+  password = { valueFrom = { secretKeyRef = { name = "pg-creds", key = "password" } } }
+})
+```
+
+Use `valueFrom` wherever your deployment provisions secrets out of band; fall back
+to inline sensitive variables only when no suitable Secret exists.
+
+### Read-back behavior and drift
+
+`GET /connectors/{id}` **redacts inline credentials** in its response: each
+sensitive value is replaced by the fixed sentinel `"<redacted>"`, and the API
+exposes a stable `config_hash` computed over the original (unredacted)
+configuration for drift detection. Because the server never returns the real
+credential, the provider keeps the `json_configuration` value from your
+configuration in state rather than overwriting it with the redacted read-back —
+this avoids a perpetual credential diff. A consequence is that **drift in
+credential fields performed outside Terraform is not detected by value
+comparison**; `config_hash`-based drift detection is tracked as a follow-up.
+
+### Write-only attributes — evaluated, not adopted (yet)
+
+Terraform 1.11+ / plugin-framework ≥1.15 support
+[write-only arguments](https://developer.hashicorp.com/terraform/plugin/framework/resources/write-only-arguments),
+which are never persisted to state. We evaluated exposing a
+`json_configuration_wo` variant and decided **not** to adopt it in this release:
+
+- The recommended `valueFrom` pattern already keeps credentials out of state
+  entirely, which is a stronger guarantee than write-only (the value never even
+  reaches the provider).
+- A write-only config would force pairing with a server-provided drift signal
+  (`config_hash`) to remain usable, which is a larger change tracked separately.
+
+This decision will be revisited alongside `config_hash`-based drift detection.
 
 ## Import
 

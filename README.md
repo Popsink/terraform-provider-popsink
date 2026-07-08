@@ -59,10 +59,11 @@ resource "popsink_connector" "kafka_source" {
 ## Documentation
 
 - **Resources**: See [docs/resources/](./docs/resources/) for detailed documentation on each resource
+  - [popsink_env](./docs/resources/env.md) - Environments (the foundational namespace)
   - [popsink_team](./docs/resources/team.md) - Teams
   - [popsink_connector](./docs/resources/connector.md) - Source and target connectors (7 types supported)
 
-- **Examples**: See [examples/](./examples/) for complete working configurations (teams + connectors)
+- **Examples**: See [examples/](./examples/) for complete working configurations (environments + teams + connectors)
 
 ## Development
 

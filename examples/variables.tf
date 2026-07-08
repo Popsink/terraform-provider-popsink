@@ -80,3 +80,15 @@ variable "datamodel_id" {
   type        = string
   default     = "00000000-0000-0000-0000-000000000000"
 }
+
+variable "owner_user_id" {
+  description = "User ID to add to the example team as an owner"
+  type        = string
+  default     = "d290f1ee-6c54-4b01-90e6-d701748f0851"
+}
+
+variable "member_user_id" {
+  description = "User ID to add to the example team as a member"
+  type        = string
+  default     = "a7d1f2fc-6e92-4dcd-b1f6-4200e4e9f1f3"
+}

@@ -135,6 +135,7 @@ func (p *popsinkProvider) Resources(ctx context.Context) []func() resource.Resou
 	return []func() resource.Resource{
 		NewEnvResource,
 		NewTeamResource,
+		NewTeamMemberResource,
 		NewConnectorResource,
 		NewSubscriptionResource,
 	}

@@ -143,6 +143,9 @@ func (p *popsinkProvider) Resources(ctx context.Context) []func() resource.Resou
 // DataSources returns the provider's data sources
 func (p *popsinkProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		// No data sources yet
+		NewEnvDataSource,
+		NewTeamDataSource,
+		NewConnectorDataSource,
+		NewPipelineDataSource,
 	}
 }

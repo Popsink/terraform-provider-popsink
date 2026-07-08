@@ -116,6 +116,31 @@ func (c *Client) UpdateConnector(ctx context.Context, connectorID string, connec
 	return &result, nil
 }
 
+// StartConnectorWorker starts a connector's worker. The endpoint is
+// asynchronous (202): callers should poll GetConnector until the status
+// converges to "live" (or "error").
+func (c *Client) StartConnectorWorker(ctx context.Context, connectorID string) error {
+	return c.connectorWorkerAction(ctx, connectorID, "start")
+}
+
+// StopConnectorWorker stops a connector's worker. The endpoint is asynchronous
+// (202): callers should poll GetConnector until the status converges to
+// "paused".
+func (c *Client) StopConnectorWorker(ctx context.Context, connectorID string) error {
+	return c.connectorWorkerAction(ctx, connectorID, "stop")
+}
+
+func (c *Client) connectorWorkerAction(ctx context.Context, connectorID, action string) error {
+	path := fmt.Sprintf("/connectors/%s/%s", connectorID, action)
+	resp, err := c.doRequest(ctx, http.MethodPost, path, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	return checkResponse(resp)
+}
+
 // DeleteConnector deletes a connector by ID
 func (c *Client) DeleteConnector(ctx context.Context, connectorID string) error {
 	path := fmt.Sprintf("/connectors/%s", connectorID)

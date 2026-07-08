@@ -13,6 +13,10 @@ resource "popsink_connector" "kafka_source" {
     sasl_password     = var.kafka_password
     topic             = "orders"
   })
+
+  # Declaratively run the worker and wait for it to converge.
+  desired_state = "running"
+  state_timeout = "10m"
 }
 
 resource "popsink_connector" "postgres_source" {

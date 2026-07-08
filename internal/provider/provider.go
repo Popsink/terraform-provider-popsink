@@ -47,7 +47,7 @@ func (p *popsinkProvider) Metadata(ctx context.Context, req provider.MetadataReq
 // Schema defines the provider-level schema for configuration data
 func (p *popsinkProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Interact with Popsink API to manage teams and connectors.",
+		Description: "Interact with Popsink API to manage environments, teams and connectors.",
 		Attributes: map[string]schema.Attribute{
 			"base_url": schema.StringAttribute{
 				Description: "The base URL for the Popsink API. May also be provided via POPSINK_BASE_URL environment variable.",
@@ -133,6 +133,7 @@ func (p *popsinkProvider) Configure(ctx context.Context, req provider.ConfigureR
 // Resources returns the provider's resources
 func (p *popsinkProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		NewEnvResource,
 		NewTeamResource,
 		NewConnectorResource,
 	}

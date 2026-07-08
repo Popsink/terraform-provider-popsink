@@ -60,3 +60,17 @@ variable "webhook_token" {
   sensitive   = true
   default     = "default"
 }
+
+variable "broker_username" {
+  description = "SASL username for the environment's Kafka broker"
+  type        = string
+  sensitive   = true
+  default     = "default"
+}
+
+variable "broker_password" {
+  description = "SASL password for the environment's Kafka broker"
+  type        = string
+  sensitive   = true
+  default     = "default"
+}

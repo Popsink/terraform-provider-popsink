@@ -37,9 +37,8 @@ builds:
     binary: "{{ .ProjectName }}_v{{ .Version }}"
 
 archives:
-  - format_overrides:
-      - goos: windows
-        formats: [zip]
+  # The Terraform Registry requires zip archives for every platform.
+  - formats: [zip]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
@@ -60,6 +59,10 @@ signs:
       - "${artifact}"
 
 release:
+  # The Terraform Registry consumes the signed manifest alongside the archives.
+  extra_files:
+    - glob: "terraform-registry-manifest.json"
+      name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
   # Visit the release before publishing
   draft: true
 

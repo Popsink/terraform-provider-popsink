@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -71,6 +72,9 @@ func NewConnectorResource() resource.Resource {
 
 type connectorResource struct {
 	client *client.Client
+	// pollInterval overrides the status-poll cadence; zero uses the default.
+	// Exposed for tests to avoid real-time waits.
+	pollInterval time.Duration
 }
 
 type connectorResourceModel struct {
@@ -81,7 +85,19 @@ type connectorResourceModel struct {
 	TeamID            types.String `tfsdk:"team_id"`
 	ItemsCount        types.Int64  `tfsdk:"items_count"`
 	Status            types.String `tfsdk:"status"`
+	DesiredState      types.String `tfsdk:"desired_state"`
+	StateTimeout      types.String `tfsdk:"state_timeout"`
 }
+
+const (
+	connectorStateRunning = "running"
+	connectorStateStopped = "stopped"
+
+	// defaultConnectorStateTimeout bounds how long the provider waits for a
+	// connector worker to converge to its desired state.
+	defaultConnectorStateTimeout = 5 * time.Minute
+	connectorStatePollInterval   = 5 * time.Second
+)
 
 func (r *connectorResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_connector"
@@ -138,6 +154,29 @@ func (r *connectorResource) Schema(ctx context.Context, req resource.SchemaReque
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"desired_state": schema.StringAttribute{
+				Description: "Desired lifecycle state of the connector worker: \"running\" or \"stopped\". " +
+					"When set, the provider starts/stops the worker and waits for the status to converge. " +
+					"Omit to leave the worker in whatever state the API defaults to. Applicable to " +
+					"connector types with a controllable worker (e.g. Kafka sources configured for retention).",
+				Optional: true,
+				Computed: true,
+				Validators: []validator.String{
+					stringvalidator.OneOf(connectorStateRunning, connectorStateStopped),
+				},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"state_timeout": schema.StringAttribute{
+				Description: "Maximum time to wait for the connector worker to reach desired_state, as a Go " +
+					"duration (e.g. \"5m\", \"90s\"). Defaults to \"5m\".",
+				Optional: true,
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -187,6 +226,11 @@ func (r *connectorResource) Create(ctx context.Context, req resource.CreateReque
 
 	r.mapToState(&plan, connector)
 	// Preserve the original json_configuration from the plan to avoid diff noise
+
+	if !r.applyDesiredState(ctx, &plan, connector.ID, resp.Diagnostics.AddError, resp.Diagnostics.AddWarning) {
+		return
+	}
+
 	tflog.Info(ctx, "Created connector", map[string]any{"id": connector.ID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -213,6 +257,11 @@ func (r *connectorResource) Read(ctx context.Context, req resource.ReadRequest, 
 	planJSON := state.JsonConfiguration
 	r.mapToState(&state, connector)
 	state.JsonConfiguration = planJSON
+
+	// desired_state reflects the observed worker state so out-of-band drift is
+	// detected on the next plan.
+	state.DesiredState = types.StringValue(deriveDesiredState(connector.Status))
+	state.StateTimeout = normalizeStateTimeout(state.StateTimeout)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -264,6 +313,11 @@ func (r *connectorResource) Update(ctx context.Context, req resource.UpdateReque
 
 	r.mapToState(&plan, connector)
 	// Preserve original json_configuration from the plan
+
+	if !r.applyDesiredState(ctx, &plan, connector.ID, resp.Diagnostics.AddError, resp.Diagnostics.AddWarning) {
+		return
+	}
+
 	tflog.Info(ctx, "Updated connector", map[string]any{"id": connector.ID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -290,6 +344,7 @@ func (r *connectorResource) ImportState(ctx context.Context, req resource.Import
 
 // mapToState maps a ConnectorRead to the terraform state model.
 // Note: JsonConfiguration is NOT set here — callers should preserve the plan value to avoid diff noise.
+// desired_state/state_timeout are handled by the caller (applyDesiredState / Read).
 func (r *connectorResource) mapToState(model *connectorResourceModel, connector *client.ConnectorRead) {
 	model.ID = types.StringValue(connector.ID)
 	model.Name = types.StringValue(connector.Name)
@@ -297,4 +352,143 @@ func (r *connectorResource) mapToState(model *connectorResourceModel, connector 
 	model.TeamID = types.StringValue(connector.TeamID)
 	model.ItemsCount = types.Int64Value(int64(connector.ItemsCount))
 	model.Status = types.StringValue(connector.Status)
+}
+
+// applyDesiredState reconciles the connector worker to model.DesiredState (when
+// set) and normalizes state_timeout on the model. It reports failures through
+// the supplied diagnostic callbacks and returns false when the caller should
+// abort (leaving diagnostics populated).
+func (r *connectorResource) applyDesiredState(
+	ctx context.Context,
+	model *connectorResourceModel,
+	connectorID string,
+	addError func(string, string),
+	addWarning func(string, string),
+) bool {
+	timeout, err := resolveStateTimeout(model.StateTimeout)
+	if err != nil {
+		addError("Invalid state_timeout", fmt.Sprintf("Could not parse state_timeout as a Go duration: %s", err))
+		return false
+	}
+	model.StateTimeout = normalizeStateTimeout(model.StateTimeout)
+
+	if model.DesiredState.IsNull() || model.DesiredState.IsUnknown() {
+		// No declarative intent: mirror the observed state so a value is stored.
+		model.DesiredState = types.StringValue(deriveDesiredState(model.Status.ValueString()))
+		return true
+	}
+
+	desired := model.DesiredState.ValueString()
+	finalStatus, err := r.reconcileConnectorState(ctx, connectorID, desired, timeout)
+	if err != nil {
+		addError("Error Setting Connector State", fmt.Sprintf("Could not converge connector %s to %q: %s", connectorID, desired, err))
+		return false
+	}
+	model.Status = types.StringValue(finalStatus)
+
+	if desired == connectorStateRunning && finalStatus == "error" {
+		addWarning(
+			"Connector Worker In Error State",
+			fmt.Sprintf("Connector %s was started but its worker reported status %q. Check the worker logs.", connectorID, finalStatus),
+		)
+	}
+	return true
+}
+
+// reconcileConnectorState starts or stops the connector worker as needed and
+// waits for convergence. It is a no-op when the worker already matches the
+// desired state.
+func (r *connectorResource) reconcileConnectorState(ctx context.Context, connectorID, desired string, timeout time.Duration) (string, error) {
+	cur, err := r.client.GetConnector(ctx, connectorID)
+	if err != nil {
+		return "", err
+	}
+	if cur == nil {
+		return "", fmt.Errorf("connector %s not found", connectorID)
+	}
+
+	switch desired {
+	case connectorStateRunning:
+		switch cur.Status {
+		case "live":
+			return cur.Status, nil
+		case "building":
+			// Already converging — just wait.
+		default:
+			if err := r.client.StartConnectorWorker(ctx, connectorID); err != nil {
+				return "", err
+			}
+		}
+		return r.pollConnectorStatus(ctx, connectorID, timeout, func(s string) bool {
+			return s == "live" || s == "error"
+		})
+	case connectorStateStopped:
+		if cur.Status == "paused" {
+			return cur.Status, nil
+		}
+		if err := r.client.StopConnectorWorker(ctx, connectorID); err != nil {
+			return "", err
+		}
+		return r.pollConnectorStatus(ctx, connectorID, timeout, func(s string) bool {
+			return s == "paused"
+		})
+	default:
+		return cur.Status, nil
+	}
+}
+
+// pollConnectorStatus polls GetConnector until done(status) is true or the
+// timeout elapses.
+func (r *connectorResource) pollConnectorStatus(ctx context.Context, connectorID string, timeout time.Duration, done func(string) bool) (string, error) {
+	interval := r.pollInterval
+	if interval <= 0 {
+		interval = connectorStatePollInterval
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		cur, err := r.client.GetConnector(ctx, connectorID)
+		if err != nil {
+			return "", err
+		}
+		if cur == nil {
+			return "", fmt.Errorf("connector %s disappeared while waiting for convergence", connectorID)
+		}
+		if done(cur.Status) {
+			return cur.Status, nil
+		}
+		if time.Now().After(deadline) {
+			return cur.Status, fmt.Errorf("timed out after %s waiting for convergence (last status: %q)", timeout, cur.Status)
+		}
+		select {
+		case <-ctx.Done():
+			return cur.Status, ctx.Err()
+		case <-time.After(interval):
+		}
+	}
+}
+
+// deriveDesiredState maps an observed worker status onto the declarative
+// desired_state domain (running/stopped).
+func deriveDesiredState(status string) string {
+	if status == "paused" {
+		return connectorStateStopped
+	}
+	return connectorStateRunning
+}
+
+// resolveStateTimeout parses the state_timeout attribute, defaulting when unset.
+func resolveStateTimeout(v types.String) (time.Duration, error) {
+	if v.IsNull() || v.IsUnknown() || v.ValueString() == "" {
+		return defaultConnectorStateTimeout, nil
+	}
+	return time.ParseDuration(v.ValueString())
+}
+
+// normalizeStateTimeout returns the concrete default when unset and preserves
+// the user's literal value otherwise (so "300s" is not rewritten to "5m0s").
+func normalizeStateTimeout(v types.String) types.String {
+	if v.IsNull() || v.IsUnknown() || v.ValueString() == "" {
+		return types.StringValue("5m")
+	}
+	return v
 }

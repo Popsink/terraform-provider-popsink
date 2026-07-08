@@ -330,6 +330,8 @@ resource "popsink_connector" "webhook_target" {
 - `connector_type` (Required) - The type of connector. See [Supported connector types](#supported-connector-types) for the full list of accepted values.
 - `json_configuration` (Required, Sensitive) - The connector configuration as a JSON string. Use `jsonencode()` for readability. Configuration fields depend on the connector type. This attribute is marked sensitive: its value is redacted from `terraform plan` output and logs. See [Handling secrets](#handling-secrets) below.
 - `team_id` (Required) - The ID of the team that owns this connector.
+- `desired_state` (Optional) - Desired lifecycle state of the connector worker: `running` or `stopped`. When set, the provider starts/stops the worker and waits for the status to converge. Omit to leave the worker in whatever state the API defaults to. Only applies to connector types with a controllable worker (e.g. Kafka sources configured for retention). See [Lifecycle control](#lifecycle-control-desired_state).
+- `state_timeout` (Optional) - Maximum time to wait for the worker to reach `desired_state`, as a Go duration (e.g. `"5m"`, `"90s"`). Defaults to `"5m"`.
 
 ## Attribute Reference
 
@@ -423,6 +425,44 @@ which are never persisted to state. We evaluated exposing a
   (`config_hash`) to remain usable, which is a larger change tracked separately.
 
 This decision will be revisited alongside `config_hash`-based drift detection.
+
+## Lifecycle control (`desired_state`)
+
+Connector workers have their own lifecycle (start/stop). By default a connector
+created through Terraform is left in whatever state the API assigns it. Set
+`desired_state` to manage it declaratively:
+
+```hcl
+resource "popsink_connector" "kafka_source" {
+  name           = "kafka-source"
+  connector_type = "KAFKA_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    bootstrap_servers = "kafka.example.com:9092"
+    topic             = "orders"
+  })
+
+  desired_state = "running"
+  state_timeout = "10m"
+}
+```
+
+Behavior:
+
+- On create and update, if the worker is not already in `desired_state`, the
+  provider calls the start/stop endpoint and **polls `GET /connectors/{id}`
+  until the status converges** (`live` for `running`, `paused` for `stopped`),
+  or `state_timeout` elapses (which fails the apply).
+- It is a **no-op when the worker already matches** the desired state.
+- Starting a worker that ends in `error` completes the apply with a warning
+  (the start was issued but the worker did not become healthy) — inspect the
+  worker logs.
+- On read, `desired_state` is refreshed from the observed worker status, so a
+  worker stopped out-of-band shows a diff on the next plan and is restarted.
+
+The same start/stop + convergence pattern applies to
+[subscriptions](subscription.md) via their own `desired_state`.
 
 ## Import
 

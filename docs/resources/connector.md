@@ -9,6 +9,26 @@ description: |-
 
 Manages a Popsink connector. A connector represents a data source or target integration (e.g., Kafka, Oracle, PostgreSQL, IBM i, Iceberg, Snowflake).
 
+## Supported connector types
+
+`connector_type` accepts any of the Popsink data-plane connector types. Every type
+listed here can be created from Terraform.
+
+**Sources**: `KAFKA_SOURCE`, `IBMI_SOURCE`, `ORACLE_SOURCE`, `POSTGRES_SOURCE`,
+`MSSQL_SOURCE`, `MYSQL_SOURCE`, `DLT_SOURCE`, `ZENDESK_SOURCE`, `SHOPIFY_SOURCE`,
+`PIPEDRIVE_SOURCE`, `HUBSPOT_SOURCE`, `GOOGLE_ADS_SOURCE`, `FACEBOOK_ADS_SOURCE`,
+`SHAREPOINT_SOURCE`, `SALESFORCE_SOURCE`, `POPSINK_SOURCE`, `DATAGEN_SOURCE`,
+`BIGQUERY_SOURCE`, `SNOWFLAKE_SOURCE`.
+
+**Targets**: `ORACLE_TARGET`, `KAFKA_TARGET`, `ICEBERG_TARGET`,
+`UNITY_CATALOG_TARGET`, `SNOWFLAKE_TARGET`, `POSTGRES_TARGET`,
+`ELASTICSEARCH_TARGET`, `BIGQUERY_TARGET`, `WEBHOOK_TARGET`.
+
+The set of fields inside `json_configuration` depends on the connector type. The
+examples below cover a representative selection; SaaS sources (Zendesk, Shopify,
+Pipedrive, Salesforce, Google Ads, Facebook Ads, SharePoint) follow the same
+token/OAuth pattern as the HubSpot example.
+
 ## Example Usage
 
 ### Kafka Source
@@ -66,6 +86,82 @@ resource "popsink_connector" "ibmi_source" {
     schema    = "MYLIB"
     whitelist = "ORDERS,CUSTOMERS"
     init_load = true
+  })
+}
+```
+
+### Oracle Source
+
+```hcl
+resource "popsink_connector" "oracle_source" {
+  name           = "oracle-source"
+  connector_type = "ORACLE_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host         = "oracle.example.com"
+    port         = 1521
+    service_name = "ORCLPDB1"
+    user         = "logminer_user"
+    password     = var.oracle_password
+    whitelist    = "SALES.ORDERS,SALES.CUSTOMERS"
+    init_load    = true
+  })
+}
+```
+
+### SQL Server Source
+
+```hcl
+resource "popsink_connector" "mssql_source" {
+  name           = "mssql-source"
+  connector_type = "MSSQL_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host                     = "mssql.example.com"
+    port                     = 1433
+    database                 = "production"
+    user                     = "cdc_user"
+    password                 = var.mssql_password
+    encrypt                  = true
+    trust_server_certificate = false
+    whitelist                = "dbo.orders,dbo.customers"
+    init_load                = true
+  })
+}
+```
+
+### MySQL Source
+
+```hcl
+resource "popsink_connector" "mysql_source" {
+  name           = "mysql-source"
+  connector_type = "MYSQL_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host      = "mysql.example.com"
+    port      = 3306
+    database  = "production"
+    user      = "replication_user"
+    password  = var.mysql_password
+    whitelist = "production.orders,production.customers"
+    init_load = true
+  })
+}
+```
+
+### HubSpot Source (SaaS / token-based)
+
+```hcl
+resource "popsink_connector" "hubspot_source" {
+  name           = "hubspot-source"
+  connector_type = "HUBSPOT_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    access_token = var.hubspot_access_token
   })
 }
 ```
@@ -135,10 +231,103 @@ resource "popsink_connector" "snowflake_target" {
 }
 ```
 
+### PostgreSQL Target
+
+```hcl
+resource "popsink_connector" "postgres_target" {
+  name           = "postgres-target"
+  connector_type = "POSTGRES_TARGET"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host     = "postgres-dw.example.com"
+    port     = "5432"
+    database = "warehouse"
+    user     = "loader"
+    password = var.postgres_target_password
+    schema   = "public"
+  })
+}
+```
+
+### Unity Catalog Target
+
+```hcl
+resource "popsink_connector" "unity_catalog_target" {
+  name           = "unity-catalog-target"
+  connector_type = "UNITY_CATALOG_TARGET"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    auth_method               = "spn"
+    tenant_id                 = var.azure_tenant_id
+    client_id                 = var.azure_client_id
+    client_secret             = var.azure_client_secret
+    storage_account_name      = "mydatalake"
+    container_name            = "delta"
+    workspace_url             = "https://adb-1234567890.0.azuredatabricks.net"
+    databricks_client_id      = var.databricks_client_id
+    databricks_client_secret  = var.databricks_client_secret
+    catalog_name              = "main"
+    schema_name               = "cdc"
+  })
+}
+```
+
+### Elasticsearch Target
+
+```hcl
+resource "popsink_connector" "elasticsearch_target" {
+  name           = "elasticsearch-target"
+  connector_type = "ELASTICSEARCH_TARGET"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    url         = "https://es.example.com:9243"
+    auth_method = "api_key"
+    api_key     = var.elasticsearch_api_key
+    verify_ssl  = true
+  })
+}
+```
+
+### BigQuery Target
+
+```hcl
+resource "popsink_connector" "bigquery_target" {
+  name           = "bigquery-target"
+  connector_type = "BIGQUERY_TARGET"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    service_account = var.gcp_service_account_json
+    project         = "my-gcp-project"
+    dataset         = "cdc"
+  })
+}
+```
+
+### Webhook Target
+
+```hcl
+resource "popsink_connector" "webhook_target" {
+  name           = "webhook-target"
+  connector_type = "WEBHOOK_TARGET"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host                = "https://example.com/ingest"
+    authentication_type = "BEARER"
+    token               = var.webhook_token
+    request_method      = "POST"
+  })
+}
+```
+
 ## Argument Reference
 
 - `name` (Required) - The name of the connector. Must only contain alphanumeric characters, hyphens, and underscores.
-- `connector_type` (Required) - The type of connector. Valid values: `KAFKA_SOURCE`, `IBMI_SOURCE`, `POSTGRES_SOURCE`, `ORACLE_TARGET`, `KAFKA_TARGET`, `ICEBERG_TARGET`, `SNOWFLAKE_TARGET`.
+- `connector_type` (Required) - The type of connector. See [Supported connector types](#supported-connector-types) for the full list of accepted values.
 - `json_configuration` (Required, Sensitive) - The connector configuration as a JSON string. Use `jsonencode()` for readability. Configuration fields depend on the connector type. This attribute is marked sensitive: its value is redacted from `terraform plan` output and logs. See [Handling secrets](#handling-secrets) below.
 - `team_id` (Required) - The ID of the team that owns this connector.
 

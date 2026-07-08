@@ -74,3 +74,9 @@ variable "broker_password" {
   sensitive   = true
   default     = "default"
 }
+
+variable "datamodel_id" {
+  description = "ID of the datamodel the example subscription reads from"
+  type        = string
+  default     = "00000000-0000-0000-0000-000000000000"
+}

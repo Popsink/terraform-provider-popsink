@@ -62,8 +62,9 @@ resource "popsink_connector" "kafka_source" {
   - [popsink_env](./docs/resources/env.md) - Environments (the foundational namespace)
   - [popsink_team](./docs/resources/team.md) - Teams
   - [popsink_connector](./docs/resources/connector.md) - Source and target connectors (7 types supported)
+  - [popsink_subscription](./docs/resources/subscription.md) - Datamodel-to-target subscriptions
 
-- **Examples**: See [examples/](./examples/) for complete working configurations (environments + teams + connectors)
+- **Examples**: See [examples/](./examples/) for complete working configurations (environments + teams + connectors + subscriptions)
 
 ## Development
 

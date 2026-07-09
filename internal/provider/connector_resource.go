@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -78,15 +80,16 @@ type connectorResource struct {
 }
 
 type connectorResourceModel struct {
-	ID                types.String `tfsdk:"id"`
-	Name              types.String `tfsdk:"name"`
-	ConnectorType     types.String `tfsdk:"connector_type"`
-	JsonConfiguration types.String `tfsdk:"json_configuration"`
-	TeamID            types.String `tfsdk:"team_id"`
-	ItemsCount        types.Int64  `tfsdk:"items_count"`
-	Status            types.String `tfsdk:"status"`
-	DesiredState      types.String `tfsdk:"desired_state"`
-	StateTimeout      types.String `tfsdk:"state_timeout"`
+	ID                  types.String `tfsdk:"id"`
+	Name                types.String `tfsdk:"name"`
+	ConnectorType       types.String `tfsdk:"connector_type"`
+	JsonConfiguration   types.String `tfsdk:"json_configuration"`
+	TeamID              types.String `tfsdk:"team_id"`
+	ItemsCount          types.Int64  `tfsdk:"items_count"`
+	Status              types.String `tfsdk:"status"`
+	DesiredState        types.String `tfsdk:"desired_state"`
+	StateTimeout        types.String `tfsdk:"state_timeout"`
+	ValidateCredentials types.Bool   `tfsdk:"validate_credentials"`
 }
 
 const (
@@ -177,6 +180,14 @@ func (r *connectorResource) Schema(ctx context.Context, req resource.SchemaReque
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"validate_credentials": schema.BoolAttribute{
+				Description: "When true, the provider validates the connector's credentials against the " +
+					"data-plane's per-type check-credentials endpoint before creating the connector (and " +
+					"before updating when json_configuration changes), failing the apply on invalid " +
+					"credentials. Defaults to false because validation requires the data-plane to reach the " +
+					"source/target system at apply time, which is not always possible from CI.",
+				Optional: true,
+			},
 		},
 	}
 }
@@ -209,6 +220,13 @@ func (r *connectorResource) Create(ctx context.Context, req resource.CreateReque
 	if err := json.Unmarshal([]byte(plan.JsonConfiguration.ValueString()), &jsonConfig); err != nil {
 		resp.Diagnostics.AddError("Invalid JSON Configuration", fmt.Sprintf("Could not parse json_configuration: %s", err))
 		return
+	}
+
+	if plan.ValidateCredentials.ValueBool() {
+		r.validateCredentials(ctx, plan.ConnectorType.ValueString(), jsonConfig, &resp.Diagnostics)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	createReq := &client.ConnectorCreate{
@@ -296,6 +314,12 @@ func (r *connectorResource) Update(ctx context.Context, req resource.UpdateReque
 		if err := json.Unmarshal([]byte(plan.JsonConfiguration.ValueString()), &jsonConfig); err != nil {
 			resp.Diagnostics.AddError("Invalid JSON Configuration", fmt.Sprintf("Could not parse json_configuration: %s", err))
 			return
+		}
+		if plan.ValidateCredentials.ValueBool() {
+			r.validateCredentials(ctx, plan.ConnectorType.ValueString(), jsonConfig, &resp.Diagnostics)
+			if resp.Diagnostics.HasError() {
+				return
+			}
 		}
 		updateReq.JsonConfiguration = &jsonConfig
 	}
@@ -464,6 +488,27 @@ func (r *connectorResource) pollConnectorStatus(ctx context.Context, connectorID
 			return cur.Status, ctx.Err()
 		case <-time.After(interval):
 		}
+	}
+}
+
+// validateCredentials calls the data-plane per-type check-credentials endpoint
+// and records a diagnostic when the credentials are rejected, the type has no
+// validation endpoint, or the request fails.
+func (r *connectorResource) validateCredentials(ctx context.Context, connectorType string, config map[string]any, diags *diag.Diagnostics) {
+	check, err := r.client.CheckConnectorCredentials(ctx, connectorType, config)
+	if errors.Is(err, client.ErrCheckUnsupportedType) {
+		diags.AddError(
+			"Credential Validation Unsupported",
+			fmt.Sprintf("Connector type %q has no credential-validation endpoint. Set validate_credentials = false for this connector.", connectorType),
+		)
+		return
+	}
+	if err != nil {
+		diags.AddError("Error Validating Credentials", fmt.Sprintf("Could not validate credentials for connector type %q: %s", connectorType, err))
+		return
+	}
+	if !check.IsSuccess {
+		diags.AddError("Credential Validation Failed", check.Message)
 	}
 }
 

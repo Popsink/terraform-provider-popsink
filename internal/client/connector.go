@@ -3,10 +3,58 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
+
+// CredentialsCheck is the outcome of a connector credential/connectivity check.
+type CredentialsCheck struct {
+	IsSuccess bool   `json:"is_success"`
+	Message   string `json:"message"`
+}
+
+// ErrCheckUnsupportedType indicates the connector type has no
+// check-credentials endpoint (the endpoint returned 404).
+var ErrCheckUnsupportedType = errors.New("connector type does not support credential validation")
+
+// connectorTypePath maps a ConnectorType (e.g. "POSTGRES_SOURCE") to its
+// per-type router prefix (e.g. "postgres-source").
+func connectorTypePath(connectorType string) string {
+	return strings.ReplaceAll(strings.ToLower(connectorType), "_", "-")
+}
+
+// CheckConnectorCredentials validates credentials/connectivity against the
+// per-type endpoint POST /{kebab-type}/check-credentials. Returns
+// ErrCheckUnsupportedType when the type exposes no such endpoint.
+func (c *Client) CheckConnectorCredentials(ctx context.Context, connectorType string, config map[string]any) (*CredentialsCheck, error) {
+	path := fmt.Sprintf("/%s/check-credentials", connectorTypePath(connectorType))
+	resp, err := c.doRequest(ctx, http.MethodPost, path, config)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, ErrCheckUnsupportedType
+	}
+	if err := checkResponse(resp); err != nil {
+		return nil, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var result CredentialsCheck
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+	return &result, nil
+}
 
 // ConnectorCreate represents the request to create a connector
 type ConnectorCreate struct {

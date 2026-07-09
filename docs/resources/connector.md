@@ -332,6 +332,7 @@ resource "popsink_connector" "webhook_target" {
 - `team_id` (Required) - The ID of the team that owns this connector.
 - `desired_state` (Optional) - Desired lifecycle state of the connector worker: `running` or `stopped`. When set, the provider starts/stops the worker and waits for the status to converge. Omit to leave the worker in whatever state the API defaults to. Only applies to connector types with a controllable worker (e.g. Kafka sources configured for retention). See [Lifecycle control](#lifecycle-control-desired_state).
 - `state_timeout` (Optional) - Maximum time to wait for the worker to reach `desired_state`, as a Go duration (e.g. `"5m"`, `"90s"`). Defaults to `"5m"`.
+- `validate_credentials` (Optional) - When `true`, validate the connector's credentials before create/update. Defaults to `false`. See [Pre-apply credential validation](#pre-apply-credential-validation).
 
 ## Attribute Reference
 
@@ -463,6 +464,42 @@ Behavior:
 
 The same start/stop + convergence pattern applies to
 [subscriptions](subscription.md) via their own `desired_state`.
+
+## Pre-apply credential validation
+
+By default a connector is created first and any credential/connectivity problem
+surfaces asynchronously at runtime (the worker fails). Set
+`validate_credentials = true` to fail fast at apply time instead:
+
+```hcl
+resource "popsink_connector" "pg" {
+  name           = "pg-source"
+  connector_type = "POSTGRES_SOURCE"
+  team_id        = popsink_team.example.id
+
+  json_configuration = jsonencode({
+    host     = "postgres.example.com"
+    user     = "replication_user"
+    password = var.postgres_password
+  })
+
+  validate_credentials = true
+}
+```
+
+Behavior:
+
+- Before `POST /connectors/` (and before an update when `json_configuration`
+  changes), the provider calls the data-plane's per-type check-credentials
+  endpoint (`POST /{connector-type}/check-credentials`) with the configuration.
+- If validation fails, the apply is **aborted with the API's error message** and
+  no connector is created/changed.
+- If the connector type has no validation endpoint (e.g. `KAFKA_TARGET`,
+  `DATAGEN_SOURCE`), the apply fails with a clear message asking you to set
+  `validate_credentials = false` for that connector.
+
+The default is `false` because validation requires the data-plane to reach the
+source/target system at apply time, which is not always possible from CI.
 
 ## Import
 

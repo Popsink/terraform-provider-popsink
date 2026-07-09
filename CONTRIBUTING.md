@@ -9,6 +9,69 @@ make testacc  # acceptance tests (requires a live data-plane, sets TF_ACC=1)
 make docs     # regenerate docs
 ```
 
+## Acceptance tests
+
+Acceptance tests (`TestAcc*`) exercise the provider end-to-end against a **real
+data-plane**: they create/update/import/destroy actual resources. They are
+skipped unless `TF_ACC=1` (set by `make testacc`), so `make test` stays fast and
+hermetic.
+
+### Running locally
+
+Point the provider at a data-plane you can safely write to and run `make testacc`:
+
+```bash
+export POPSINK_BASE_URL="https://data-plane.example.com/api"
+export POPSINK_TOKEN="…"
+export POPSINK_INSECURE="true"   # only for self-signed certs
+
+make testacc                     # all acceptance tests
+make testacc T=TestAccTeamResource   # a single test
+```
+
+Some tests need a pre-existing object the API cannot create from Terraform and
+are **skipped** unless you provide it:
+
+| Env var | Needed by |
+|---------|-----------|
+| `POPSINK_TEST_USER_ID` | `TestAccTeamMemberResource` (a user to add to a team) |
+| `POPSINK_TEST_DATAMODEL_ID` + `POPSINK_TEST_TARGET_CONNECTOR_ID` | `TestAccSubscriptionResource` |
+
+The self-contained tests (`popsink_team`, `popsink_connector`, `popsink_env`,
+and the `popsink_team` data source, plus a 404-removal/"disappears" test) run
+with just `POPSINK_BASE_URL` / `POPSINK_TOKEN`.
+
+### CI
+
+Acceptance tests are **not** part of the fast unit CI. Run them on a schedule and
+before a release via a dedicated workflow with a staging data-plane's
+credentials in repository secrets (`POPSINK_BASE_URL`, `POPSINK_TOKEN`). Suggested
+`.github/workflows/acceptance.yml`:
+
+```yaml
+name: acceptance
+on:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  testacc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ".go-version"
+          cache: true
+      - run: make testacc
+        env:
+          TF_ACC: "1"
+          POPSINK_BASE_URL: ${{ secrets.POPSINK_BASE_URL }}
+          POPSINK_TOKEN: ${{ secrets.POPSINK_TOKEN }}
+```
+
 ## Keeping `connector_type` in sync
 
 The provider validates `connector_type` against an explicit list of accepted

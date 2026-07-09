@@ -64,6 +64,7 @@ resource "popsink_connector" "kafka_source" {
   - [popsink_team_member](./docs/resources/team_member.md) - Team membership
   - [popsink_connector](./docs/resources/connector.md) - Source and target connectors (7 types supported)
   - [popsink_subscription](./docs/resources/subscription.md) - Datamodel-to-target subscriptions
+  - [popsink_datamodel](./docs/resources/datamodel.md) - Adopt and manage a derived datamodel's lifecycle
 - **Data sources**: See [docs/data-sources/](./docs/data-sources/) for looking up existing resources by name
   - `popsink_env`, `popsink_team`, `popsink_connector`, `popsink_pipeline`
 

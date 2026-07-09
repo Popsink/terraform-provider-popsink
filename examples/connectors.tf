@@ -33,6 +33,9 @@ resource "popsink_connector" "postgres_source" {
     whitelist = "public.orders,public.customers"
     init_load = true
   })
+
+  # Fail the apply if the credentials can't reach the database.
+  validate_credentials = true
 }
 
 resource "popsink_connector" "ibmi_source" {

@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `popsink_team_member` resource — declarative team membership.
 - `desired_state` lifecycle control on `popsink_connector` (start/stop with
   convergence polling and a configurable `state_timeout`).
+- Optional `validate_credentials` on `popsink_connector` — pre-apply credential
+  validation via the data-plane per-type check-credentials endpoints.
 - Data sources `popsink_env`, `popsink_team`, `popsink_connector` and
   `popsink_pipeline` for looking up existing resources by name.
 - `terraform-registry-manifest.json` and release wiring for Terraform Registry

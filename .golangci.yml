@@ -116,6 +116,9 @@ linters:
       disable-all: true
     goconst:
       min-len: 5
+      # Repeated string literals in tests are fixture values (ids, sample
+      # config), not candidates for shared constants.
+      ignore-tests: true
     gosec:
       excludes:
         - G115

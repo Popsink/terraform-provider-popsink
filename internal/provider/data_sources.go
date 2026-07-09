@@ -131,7 +131,7 @@ func (d *connectorDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 			"name":           schema.StringAttribute{Description: "The name of the connector to look up.", Required: true},
 			"id":             schema.StringAttribute{Description: "The unique identifier of the connector.", Computed: true},
 			"connector_type": schema.StringAttribute{Description: "The connector type.", Computed: true},
-			"team_id":        schema.StringAttribute{Description: "The team that owns the connector.", Computed: true},
+			attrTeamID:       schema.StringAttribute{Description: "The team that owns the connector.", Computed: true},
 		},
 	}
 }

@@ -144,7 +144,7 @@ func (r *subscriptionResource) Schema(ctx context.Context, req resource.SchemaRe
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"desired_state": schema.StringAttribute{
+			attrDesiredState: schema.StringAttribute{
 				Description: "Desired lifecycle state: \"running\" (enabled) or \"paused\" (disabled). " +
 					"Defaults to the server state after creation.",
 				Optional: true,

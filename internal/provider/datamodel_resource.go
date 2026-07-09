@@ -70,7 +70,7 @@ func (r *datamodelResource) Schema(ctx context.Context, req resource.SchemaReque
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"desired_state": schema.StringAttribute{
+			attrDesiredState: schema.StringAttribute{
 				Description: "Desired lifecycle state: \"running\" (enabled) or \"stopped\" (disabled). " +
 					"Managed via the datamodel start/stop endpoints; defaults to the server state.",
 				Optional: true,

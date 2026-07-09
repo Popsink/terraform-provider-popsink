@@ -96,6 +96,11 @@ const (
 	connectorStateRunning = "running"
 	connectorStateStopped = "stopped"
 
+	// Worker status values reported by the data-plane.
+	connectorStatusPaused = "paused"
+	connectorStatusLive   = "live"
+	connectorStatusError  = "error"
+
 	// defaultConnectorStateTimeout bounds how long the provider waits for a
 	// connector worker to converge to its desired state.
 	defaultConnectorStateTimeout = 5 * time.Minute
@@ -139,7 +144,7 @@ func (r *connectorResource) Schema(ctx context.Context, req resource.SchemaReque
 				Required:  true,
 				Sensitive: true,
 			},
-			"team_id": schema.StringAttribute{
+			attrTeamID: schema.StringAttribute{
 				Description: "The ID of the team that owns this connector.",
 				Required:    true,
 			},
@@ -157,7 +162,7 @@ func (r *connectorResource) Schema(ctx context.Context, req resource.SchemaReque
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"desired_state": schema.StringAttribute{
+			attrDesiredState: schema.StringAttribute{
 				Description: "Desired lifecycle state of the connector worker: \"running\" or \"stopped\". " +
 					"When set, the provider starts/stops the worker and waits for the status to converge. " +
 					"Omit to leave the worker in whatever state the API defaults to. Applicable to " +
@@ -410,7 +415,7 @@ func (r *connectorResource) applyDesiredState(
 	}
 	model.Status = types.StringValue(finalStatus)
 
-	if desired == connectorStateRunning && finalStatus == "error" {
+	if desired == connectorStateRunning && finalStatus == connectorStatusError {
 		addWarning(
 			"Connector Worker In Error State",
 			fmt.Sprintf("Connector %s was started but its worker reported status %q. Check the worker logs.", connectorID, finalStatus),
@@ -444,17 +449,17 @@ func (r *connectorResource) reconcileConnectorState(ctx context.Context, connect
 			}
 		}
 		return r.pollConnectorStatus(ctx, connectorID, timeout, func(s string) bool {
-			return s == "live" || s == "error"
+			return s == connectorStatusLive || s == connectorStatusError
 		})
 	case connectorStateStopped:
-		if cur.Status == "paused" {
+		if cur.Status == connectorStatusPaused {
 			return cur.Status, nil
 		}
 		if err := r.client.StopConnectorWorker(ctx, connectorID); err != nil {
 			return "", err
 		}
 		return r.pollConnectorStatus(ctx, connectorID, timeout, func(s string) bool {
-			return s == "paused"
+			return s == connectorStatusPaused
 		})
 	default:
 		return cur.Status, nil
@@ -515,7 +520,7 @@ func (r *connectorResource) validateCredentials(ctx context.Context, connectorTy
 // deriveDesiredState maps an observed worker status onto the declarative
 // desired_state domain (running/stopped).
 func deriveDesiredState(status string) string {
-	if status == "paused" {
+	if status == connectorStatusPaused {
 		return connectorStateStopped
 	}
 	return connectorStateRunning

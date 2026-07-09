@@ -60,7 +60,7 @@ func (r *teamMemberResource) Schema(ctx context.Context, req resource.SchemaRequ
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"team_id": schema.StringAttribute{
+			attrTeamID: schema.StringAttribute{
 				Description: "The ID of the team. Changing this forces a new membership.",
 				Required:    true,
 				PlanModifiers: []planmodifier.String{
@@ -149,7 +149,7 @@ func (r *teamMemberResource) Create(ctx context.Context, req resource.CreateRequ
 
 	plan.ID = types.StringValue(member.ID)
 	plan.Role = types.StringValue(roleFromAdmin(member.Admin))
-	tflog.Info(ctx, "Added team member", map[string]any{"team_id": teamID, "member_id": member.ID})
+	tflog.Info(ctx, "Added team member", map[string]any{attrTeamID: teamID, "member_id": member.ID})
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -198,7 +198,7 @@ func (r *teamMemberResource) Delete(ctx context.Context, req resource.DeleteRequ
 		return
 	}
 
-	tflog.Info(ctx, "Removed team member", map[string]any{"team_id": state.TeamID.ValueString(), "member_id": state.ID.ValueString()})
+	tflog.Info(ctx, "Removed team member", map[string]any{attrTeamID: state.TeamID.ValueString(), "member_id": state.ID.ValueString()})
 }
 
 // ImportState accepts a composite ID of the form "team_id/member_id".
@@ -211,7 +211,7 @@ func (r *teamMemberResource) ImportState(ctx context.Context, req resource.Impor
 		)
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("team_id"), parts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(attrTeamID), parts[0])...)
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }
 

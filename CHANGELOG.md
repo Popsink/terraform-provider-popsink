@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `popsink_pipeline` for looking up existing resources by name.
 - `terraform-registry-manifest.json` and release wiring for Terraform Registry
   publishing.
+- Acceptance test suite (`TestAcc*`, gated on `TF_ACC=1`) exercising resources
+  and data sources against a real data-plane, with contributor docs.
 
 ### Changed
 

@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `popsink_subscription` resource — datamodel-to-target subscriptions with
   `desired_state` (running/paused) lifecycle control.
 - `popsink_team_member` resource — declarative team membership.
+- `popsink_datamodel` resource — adopt an existing (derived) datamodel and
+  manage its `desired_state` (running/stopped) lifecycle.
 - `desired_state` lifecycle control on `popsink_connector` (start/stop with
   convergence polling and a configurable `state_timeout`).
 - Optional `validate_credentials` on `popsink_connector` — pre-apply credential

@@ -43,34 +43,16 @@ with just `POPSINK_BASE_URL` / `POPSINK_TOKEN`.
 
 ### CI
 
-Acceptance tests are **not** part of the fast unit CI. Run them on a schedule and
-before a release via a dedicated workflow with a staging data-plane's
-credentials in repository secrets (`POPSINK_BASE_URL`, `POPSINK_TOKEN`). Suggested
-`.github/workflows/acceptance.yml`:
+Acceptance tests are **not** part of the fast unit CI. They run weekly and on
+demand from `.github/workflows/acceptance.yml`, against a staging data-plane
+whose credentials live in the repository secrets `POPSINK_BASE_URL` and
+`POPSINK_TOKEN`.
 
-```yaml
-name: acceptance
-on:
-  schedule:
-    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
-  workflow_dispatch: {}
-permissions:
-  contents: read
-jobs:
-  testacc:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: ".go-version"
-          cache: true
-      - run: make testacc
-        env:
-          TF_ACC: "1"
-          POPSINK_BASE_URL: ${{ secrets.POPSINK_BASE_URL }}
-          POPSINK_TOKEN: ${{ secrets.POPSINK_TOKEN }}
-```
+Those secrets are optional: when either is missing the workflow reports a notice
+and stops, so a repository without a staging data-plane does not get a failing
+scheduled run every Monday. Running it manually (`workflow_dispatch`) with the
+secrets missing fails instead — a manual run is an explicit request to exercise
+a live data-plane, and silently doing nothing would be misleading.
 
 ## Keeping `connector_type` in sync
 

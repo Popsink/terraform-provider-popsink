@@ -3,6 +3,11 @@ name: acceptance
 # Acceptance tests hit a real data-plane, so they run on a schedule and on
 # demand rather than on every push. Provide POPSINK_BASE_URL / POPSINK_TOKEN as
 # repository secrets pointing at a staging data-plane you can safely write to.
+#
+# Until those secrets exist the scheduled run has nothing to talk to, so it
+# reports a notice and stops instead of failing every week. A manual
+# workflow_dispatch still fails loudly: whoever pressed the button meant to
+# exercise a live data-plane.
 
 on:
   schedule:
@@ -16,16 +21,38 @@ jobs:
   testacc:
     runs-on: ubuntu-latest
     steps:
+      - name: Check data-plane credentials
+        id: creds
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          POPSINK_BASE_URL: ${{ secrets.POPSINK_BASE_URL }}
+          POPSINK_TOKEN: ${{ secrets.POPSINK_TOKEN }}
+        run: |
+          if [ -n "$POPSINK_BASE_URL" ] && [ -n "$POPSINK_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "configured=false" >> "$GITHUB_OUTPUT"
+          message="POPSINK_BASE_URL and POPSINK_TOKEN repository secrets are not set; acceptance tests need a live data-plane."
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "::error::$message"
+            exit 1
+          fi
+          echo "::notice::$message Skipping the scheduled run."
+
       - name: Checkout
+        if: steps.creds.outputs.configured == 'true'
         uses: actions/checkout@v6
 
       - name: Set up Go
+        if: steps.creds.outputs.configured == 'true'
         uses: actions/setup-go@v6
         with:
           go-version-file: ".go-version"
           cache: true
 
       - name: Run acceptance tests
+        if: steps.creds.outputs.configured == 'true'
         run: make testacc
         env:
           TF_ACC: "1"
